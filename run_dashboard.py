@@ -64,7 +64,7 @@ def main():
         subprocess.run([
             sys.executable, "-m", "streamlit", "run", 
             dashboard_file,
-            "--server.port=80",
+            "--server.port=8501",
             "--server.address=0.0.0.0",
             "--browser.gatherUsageStats=false"
         ])
