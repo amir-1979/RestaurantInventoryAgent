@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="UTF-8" />
+  <title>Restaurant Inventory – Visual Report</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Marked (Markdown -> HTML) -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+  <!-- PapaParse (CSV parsing) -->
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+  <style>
+    @media print {
+      .no-print { display: none !important; }
+      .page-break { page-break-before: always; }
+    }
+    .prose h1 { font-size: 1.75rem; font-weight: 700; margin-top: .75rem; }
+    .prose h2 { font-size: 1.25rem; font-weight: 700; margin-top: .75rem; }
+    .prose h3 { font-size: 1.1rem; font-weight: 600; margin-top: .75rem; }
+    .prose table { width: 100%; border-collapse: collapse; margin: .75rem 0; font-size: 0.925rem; }
+    .prose table th, .prose table td { border: 1px solid #e5e7eb; padding: .5rem; text-align: left; }
+    .dark .prose table th, .dark .prose table td { border-color: #374151; }
+    .prose code { background: #f3f4f6; padding: 0 .25rem; border-radius: .25rem; }
+    .dark .prose code { background: #1f2937; }
+    .prose a { color: #2563eb; }
+    .badge { font-size: .75rem; background: #eef2ff; color: #3730a3; padding: .15rem .5rem; border-radius: 999px; }
+    .dark .badge { background: #1f2937; color: #c7d2fe; }
+    .tbl th, .tbl td { border: 1px solid #e5e7eb; padding: .5rem; }
+    .dark .tbl th, .dark .tbl td { border-color: #374151; }
+  </style>
+</head>
+<body class="h-full bg-gray-50 text-gray-900 dark:bg-gray-900 dark:text-gray-100">
+  <!-- Header -->
+  <header class="bg-white dark:bg-gray-800 shadow sticky top-0 z-10">
+    <div class="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
+      <h1 class="text-xl md:text-2xl font-bold">Restaurant Inventory – Visual Report</h1>
+      <div class="no-print flex items-center gap-2">
+        <button id="darkToggle" class="px-3 py-2 rounded-xl bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600">Toggle Dark</button>
+        <button onclick="window.print()" class="px-3 py-2 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700">Print / Save PDF</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 py-6 space-y-6">
+    <!-- Loaders -->
+    <section class="grid grid-cols-1 xl:grid-cols-3 gap-4 no-print">
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow p-4">
+        <h2 class="text-lg font-semibold mb-1">Load Markdown Report</h2>
+        <p class="text-sm text-gray-600 dark:text-gray-400 mb-3">Select <code>inventory_analysis_report.md</code> (optional).</p>
+        <input id="mdInput" type="file" accept=".md,text/markdown,text/plain" class="block w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 dark:file:bg-gray-700 dark:file:text-gray-200" />
+      </div>
+
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow p-4">
+        <h2 class="text-lg font-semibold mb-1">Load Full Inventory (Recommended)</h2>
+        <p class="text-sm text-gray-600 dark:text-gray-400 mb-3">Select <code>inventory.csv</code>. Charts are generated from this file.</p>
+        <input id="fullCsvInput" type="file" accept=".csv" class="block w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 dark:file:bg-gray-700 dark:file:text-gray-200" />
+      </div>
+
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow p-4">
+        <h2 class="text-lg font-semibold mb-1">Load Slices (Optional)</h2>
+        <p class="text-sm text-gray-600 dark:text-gray-400">Select any of:</p>
+        <ul class="list-disc ml-6 text-sm text-gray-600 dark:text-gray-400 mb-2">
+          <li><code>expired_items.csv</code></li>
+          <li><code>expiring_7d_items.csv</code></li>
+          <li><code>fresh_items.csv</code></li>
+        </ul>
+        <input id="csvInput" type="file" multiple accept=".csv" class="block w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 dark:file:bg-gray-700 dark:file:text-gray-200" />
+      </div>
+    </section>
+
+    <!-- KPI Cards -->
+    <section class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow p-5">
+        <div class="text-sm text-gray-500 dark:text-gray-400">Expired</div>
+        <div id="kpiExpired" class="text-3xl font-bold">—</div>
+        <div id="kpiExpiredQty" class="text-sm text-gray-500 dark:text-gray-400 mt-1"></div>
+      </div>
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow p-5">
+        <div class="text-sm text-gray-500 dark:text-gray-400">Expiring ≤ 7 days</div>
+        <div id="kpiExpiring" class="text-3xl font-bold">—</div>
+        <div id="kpiExpiringQty" class="text-sm text-gray-500 dark:text-gray-400 mt-1"></div>
+      </div>
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow p-5">
+        <div class="text-sm text-gray-500 dark:text-gray-400">Fresh</div>
+        <div id="kpiFresh" class="text-3xl font-bold">—</div>
+        <div id="kpiFreshQty" class="text-sm text-gray-500 dark:text-gray-400 mt-1"></div>
+      </div>
+    </section>
+
+    <!-- Charts -->
+    <section class="grid grid-cols-1 xl:grid-cols-2 gap-4">
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow p-5">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="text-lg font-semibold">Status Breakdown</h3>
+          <span class="badge">Counts</span>
+        </div>
+        <canvas id="statusChart" height="140"></canvas>
+      </div>
+
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow p-5">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="text-lg font-semibold">Status by Category (Stacked)</h3>
+          <span class="badge">Counts</span>
+        </div>
+        <canvas id="categoryStackedChart" height="140"></canvas>
+      </div>
+
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow p-5">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="text-lg font-semibold">Expirations Timeline (Next 45 Days)</h3>
+          <span class="badge">Daily Items</span>
+        </div>
+        <canvas id="timelineChart" height="140"></canvas>
+      </div>
+
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow p-5">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="text-lg font-semibold">Quantity vs. Days to Expiry</h3>
+          <span class="badge">Bubble</span>
+        </div>
+        <canvas id="bubbleChart" height="140"></canvas>
+      </div>
+    </section>
+
+    <!-- Markdown Report Viewer -->
+    <section class="bg-white dark:bg-gray-800 rounded-2xl shadow p-6">
+      <div class="flex items-center justify-between mb-2">
+        <h2 class="text-xl font-semibold">Markdown Report</h2>
+        <input id="tableSearch" placeholder="Search tables..." class="no-print rounded-xl border px-3 py-2 text-sm dark:bg-gray-900 dark:border-gray-700" />
+      </div>
+      <div id="mdContainer" class="prose max-w-none text-[15px] leading-7">
+        <p class="text-gray-500 dark:text-gray-400">Load <code>inventory_analysis_report.md</code> or just provide <code>inventory.csv</code> (the charts and KPIs will still populate).</p>
+      </div>
+    </section>
+
+    <!-- Data Tables -->
+    <section class="grid grid-cols-1 xl:grid-cols-3 gap-4">
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow p-5">
+        <h3 class="text-lg font-semibold mb-3">Expired Items</h3>
+        <div id="tblExpired" class="overflow-auto text-sm"></div>
+      </div>
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow p-5">
+        <h3 class="text-lg font-semibold mb-3">Expiring ≤ 7 days</h3>
+        <div id="tblExpiring" class="overflow-auto text-sm"></div>
+      </div>
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow p-5">
+        <h3 class="text-lg font-semibold mb-3">Fresh Items</h3>
+        <div id="tblFresh" class="overflow-auto text-sm"></div>
+      </div>
+    </section>
+
+    <footer class="text-center text-xs text-gray-500 dark:text-gray-400 py-8">
+      Visual report for Bedrock + Strands pipeline. Client-side only; files never leave your browser.
+    </footer>
+  </main>
+
+  <script>
+    // ======= Global State =======
+    const state = {
+      rowsAll: [],        // from full inventory.csv
+      rowsExpired: [],    // from slice or computed
+      rowsExpiring: [],
+      rowsFresh: [],
+      counts: { expired: 0, expiring: 0, fresh: 0 },
+      qty: { expired: 0, expiring: 0, fresh: 0 },
+      charts: {},
+    };
+
+    // ======= Helpers =======
+    const today = new Date(); today.setHours(0,0,0,0);
+    function parseDate(s) {
+      if (!s) return null;
+      const d = new Date(s);
+      return isNaN(d.getTime()) ? null : new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    }
+    function daysBetween(a, b) {
+      const ms = a.getTime() - b.getTime();
+      return Math.round(ms / 86400000);
+    }
+    function getColIndex(headers, names) {
+      const lower = headers.map(h => (h || "").toString().trim().toLowerCase());
+      for (const n of names) {
+        const i = lower.indexOf(n);
+        if (i >= 0) return i;
+      }
+      return -1;
+    }
+    function toNum(v) {
+      const n = Number(v);
+      return Number.isFinite(n) ? n : 0;
+    }
+
+    function renderTable(containerId, rows) {
+      const el = document.getElementById(containerId);
+      if (!rows || rows.length === 0) {
+        el.innerHTML = '<p class="text-gray-500 dark:text-gray-400">No data.</p>';
+        return;
+      }
+      const headers = rows[0];
+      const body = rows.slice(1);
+      const thead = `<thead class="bg-gray-50 dark:bg-gray-900"><tr>${
+        headers.map(h => `<th class="tbl text-left text-xs font-semibold uppercase tracking-wider">${escapeHtml(h)}</th>`).join("")
+      }</tr></thead>`;
+      const tbody = `<tbody>${
+        body.map(r => `<tr class="hover:bg-gray-50 dark:hover:bg-gray-900">${
+          r.map(c => `<td class="tbl">${escapeHtml(c)}</td>`).join("")
+        }</tr>`).join("")
+      }</tbody>`;
+      el.innerHTML = `<table class="w-full border border-gray-200 dark:border-gray-700 text-sm rounded-md overflow-hidden">${thead}${tbody}</table>`;
+    }
+
+    function escapeHtml(v) {
+      if (v === null || v === undefined) return "";
+      return String(v).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;");
+    }
+
+    function extractCountsFromMarkdown() {
+      const text = document.getElementById("mdContainer").innerText || "";
+      const re = /expired:\s*(\d+).*?expiring.*?(\d+).*?fresh:\s*(\d+)/i;
+      const m = text.match(re);
+      if (m) {
+        state.counts.expired = +m[1];
+        state.counts.expiring = +m[2];
+        state.counts.fresh = +m[3];
+      }
+      refreshKpis();
+      drawAllCharts();
+    }
+
+    function updateKpisFromRows() {
+      state.counts.expired = Math.max(0, state.rowsExpired.length - 1);
+      state.counts.expiring = Math.max(0, state.rowsExpiring.length - 1);
+      state.counts.fresh = Math.max(0, state.rowsFresh.length - 1);
+
+      // quantities if available
+      const qIdxE = state.rowsExpired[0] ? getColIndex(state.rowsExpired[0], ["quantity"]) : -1;
+      const qIdxX = state.rowsExpiring[0] ? getColIndex(state.rowsExpiring[0], ["quantity"]) : -1;
+      const qIdxF = state.rowsFresh[0] ? getColIndex(state.rowsFresh[0], ["quantity"]) : -1;
+      state.qty.expired = qIdxE >= 0 ? sumColumn(state.rowsExpired.slice(1), qIdxE) : 0;
+      state.qty.expiring = qIdxX >= 0 ? sumColumn(state.rowsExpiring.slice(1), qIdxX) : 0;
+      state.qty.fresh = qIdxF >= 0 ? sumColumn(state.rowsFresh.slice(1), qIdxF) : 0;
+
+      refreshKpis();
+    }
+
+    function sumColumn(rows, idx) {
+      let s = 0;
+      for (const r of rows) s += toNum(r[idx]);
+      return s;
+    }
+
+    function refreshKpis() {
+      document.getElementById("kpiExpired").textContent = state.counts.expired || 0;
+      document.getElementById("kpiExpiring").textContent = state.counts.expiring || 0;
+      document.getElementById("kpiFresh").textContent = state.counts.fresh || 0;
+
+      document.getElementById("kpiExpiredQty").textContent = state.qty.expired ? `Qty: ${state.qty.expired}` : "";
+      document.getElementById("kpiExpiringQty").textContent = state.qty.expiring ? `Qty: ${state.qty.expiring}` : "";
+      document.getElementById("kpiFreshQty").textContent = state.qty.fresh ? `Qty: ${state.qty.fresh}` : "";
+    }
+
+    // ======= Charts =======
+    function drawAllCharts() {
+      drawStatusChart();
+      drawCategoryStackedChart();
+      drawTimelineChart();
+      drawBubbleChart();
+    }
+
+    function destroyChart(id) {
+      if (state.charts[id]) {
+        state.charts[id].destroy();
+        delete state.charts[id];
+      }
+    }
+
+    function drawStatusChart() {
+      const data = [state.counts.expired, state.counts.expiring, state.counts.fresh];
+      const ctx = document.getElementById("statusChart");
+      destroyChart("statusChart");
+      state.charts.statusChart = new Chart(ctx, {
+        type: "doughnut",
+        data: {
+          labels: ["Expired", "Expiring ≤ 7d", "Fresh"],
+          datasets: [{ data }]
+        },
+        options: { responsive: true, plugins: { legend: { position: "bottom" } } }
+      });
+    }
+
+    function drawCategoryStackedChart() {
+      // Build category stacks from whatever rows we have (prefer full inventory)
+      let rows = state.rowsAll.length ? state.rowsAll : mergeSlices();
+      if (!rows.length) { destroyChart("categoryStackedChart"); return; }
+
+      const headers = rows[0].map(h => (h || "").toString());
+      const iCat = getColIndex(headers, ["category"]);
+      const iQty = getColIndex(headers, ["quantity"]);
+      const iItem = getColIndex(headers, ["item","product","name"]);
+      const iDate = getColIndex(headers, ["expiration_date","expiry_date","expires","best_before"]);
+      if (iCat < 0 || iDate < 0) { destroyChart("categoryStackedChart"); return; }
+
+      const catMap = {}; // {category: {expired: count, expiring: count, fresh: count}}
+      for (let r = 1; r < rows.length; r++) {
+        const row = rows[r];
+        const cat = (row[iCat] || "Uncategorized").toString();
+        const ex = parseDate(row[iDate]);
+        if (!ex) continue;
+        const days = daysBetween(ex, today);
+        const status = days < 0 ? "expired" : (days <= 7 ? "expiring" : "fresh");
+        if (!catMap[cat]) catMap[cat] = { expired: 0, expiring: 0, fresh: 0 };
+        catMap[cat][status]++;
+      }
+
+      const cats = Object.keys(catMap).sort();
+      const expired = cats.map(c => catMap[c].expired);
+      const expiring = cats.map(c => catMap[c].expiring);
+      const fresh = cats.map(c => catMap[c].fresh);
+
+      const ctx = document.getElementById("categoryStackedChart");
+      destroyChart("categoryStackedChart");
+      state.charts.categoryStackedChart = new Chart(ctx, {
+        type: "bar",
+        data: {
+          labels: cats,
+          datasets: [
+            { label: "Expired", data: expired, stack: "status" },
+            { label: "Expiring ≤ 7d", data: expiring, stack: "status" },
+            { label: "Fresh", data: fresh, stack: "status" }
+          ]
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { position: "bottom" } },
+          scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true, ticks: { precision: 0 } } }
+        }
+      });
+    }
+
+    function drawTimelineChart() {
+      // Count items per expiration date within next 45 days (including overdue bucket)
+      let rows = state.rowsAll.length ? state.rowsAll : mergeSlices();
+      if (!rows.length) { destroyChart("timelineChart"); return; }
+
+      const headers = rows[0].map(h => (h || "").toString());
+      const iDate = getColIndex(headers, ["expiration_date","expiry_date","expires","best_before"]);
+      if (iDate < 0) { destroyChart("timelineChart"); return; }
+
+      const counts = {};
+      const end = new Date(today); end.setDate(end.getDate() + 45);
+      let overdue = 0;
+
+      for (let r = 1; r < rows.length; r++) {
+        const ex = parseDate(rows[r][iDate]);
+        if (!ex) continue;
+        if (ex < today) { overdue++; continue; }
+        if (ex > end) continue;
+        const key = ex.toISOString().slice(0,10);
+        counts[key] = (counts[key] || 0) + 1;
+      }
+
+      const labels = [];
+      const data = [];
+      const cursor = new Date(today);
+      while (cursor <= end) {
+        const key = cursor.toISOString().slice(0,10);
+        labels.push(key);
+        data.push(counts[key] || 0);
+        cursor.setDate(cursor.getDate() + 1);
+      }
+
+      const ctx = document.getElementById("timelineChart");
+      destroyChart("timelineChart");
+      state.charts.timelineChart = new Chart(ctx, {
+        type: "line",
+        data: { labels, datasets: [{ label: "Items expiring", data, fill: false }] },
+        options: {
+          responsive: true,
+          plugins: { legend: { position: "bottom" } },
+          scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+        }
+      });
+    }
+
+    function drawBubbleChart() {
+      // Uses quantity vs. days-to-expiry (negative = overdue), bubble radius by quantity
+      let rows = state.rowsAll.length ? state.rowsAll : mergeSlices();
+      if (!rows.length) { destroyChart("bubbleChart"); return; }
+
+      const headers = rows[0].map(h => (h || "").toString());
+      const iQty = getColIndex(headers, ["quantity"]);
+      const iDate = getColIndex(headers, ["expiration_date","expiry_date","expires","best_before"]);
+      const iItem = getColIndex(headers, ["item","product","name"]);
+      if (iQty < 0 || iDate < 0) { destroyChart("bubbleChart"); return; }
+
+      const pts = [];
+      for (let r = 1; r < rows.length; r++) {
+        const row = rows[r];
+        const qty = toNum(row[iQty]);
+        const ex = parseDate(row[iDate]); if (!ex) continue;
+        const dte = daysBetween(ex, today); // days to expiry (negative overdue)
+        pts.push({ x: dte, y: qty, r: Math.max(3, Math.sqrt(qty)*2), label: row[iItem] || "Item" });
+      }
+
+      const ctx = document.getElementById("bubbleChart");
+      destroyChart("bubbleChart");
+      state.charts.bubbleChart = new Chart(ctx, {
+        type: "bubble",
+        data: { datasets: [{ label: "Qty vs. Days to Expiry", data: pts, parsing: false }] },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: (c) => {
+                  const p = c.raw;
+                  return `${p.label}: qty ${p.y}, days to expiry ${p.x}`;
+                }
+              }
+            }
+          },
+          scales: {
+            x: { title: { display: true, text: "Days to Expiry (negative = overdue)" } },
+            y: { title: { display: true, text: "Quantity" }, beginAtZero: true }
+          }
+        }
+      });
+    }
+
+    function mergeSlices() {
+      // Merge three slices into one array (with headers unified)
+      if (!state.rowsExpired.length && !state.rowsExpiring.length && !state.rowsFresh.length) return [];
+      const headers = state.rowsExpired[0] || state.rowsExpiring[0] || state.rowsFresh[0];
+      const merged = [headers];
+      [state.rowsExpired, state.rowsExpiring, state.rowsFresh].forEach(slice => {
+        if (slice.length) merged.push(...slice.slice(1));
+      });
+      return merged;
+    }
+
+    // ======= Markdown & Tables =======
+    function renderMarkdown(text) {
+      const html = marked.parse(text ?? "");
+      document.getElementById("mdContainer").innerHTML = html;
+      extractCountsFromMarkdown();
+    }
+
+    function filterTable(containerId, term) {
+      const el = document.getElementById(containerId);
+      const rows = el.querySelectorAll("tbody tr");
+      term = (term || "").toLowerCase();
+      rows.forEach(tr => {
+        tr.style.display = tr.innerText.toLowerCase().includes(term) ? "" : "none";
+      });
+    }
+
+    // ======= File Handling =======
+    function parseCsvFile(file, cb) {
+      Papa.parse(file, {
+        complete: (res) => cb(res?.data || []),
+        error: () => cb([]),
+      });
+    }
+
+    function buildSlicesFromFull(fullRows) {
+      if (!fullRows.length) return;
+
+      const headers = fullRows[0].map(h => (h || "").toString());
+      const iDate = getColIndex(headers, ["expiration_date","expiry_date","expires","best_before"]);
+      const iQty  = getColIndex(headers, ["quantity"]);
+      if (iDate < 0) return;
+
+      const expired = [headers], expiring = [headers], fresh = [headers];
+      let qE=0,qX=0,qF=0;
+
+      for (let r = 1; r < fullRows.length; r++) {
+        const row = fullRows[r];
+        const ex = parseDate(row[iDate]); if (!ex) continue;
+        const days = daysBetween(ex, today);
+        if (days < 0) { expired.push(row); qE += iQty>=0? toNum(row[iQty]):0; }
+        else if (days <= 7) { expiring.push(row); qX += iQty>=0? toNum(row[iQty]):0; }
+        else { fresh.push(row); qF += iQty>=0? toNum(row[iQty]):0; }
+      }
+
+      state.rowsAll = fullRows;
+      state.rowsExpired = expired;
+      state.rowsExpiring = expiring;
+      state.rowsFresh = fresh;
+
+      state.counts.expired = expired.length - 1;
+      state.counts.expiring = expiring.length - 1;
+      state.counts.fresh = fresh.length - 1;
+      state.qty.expired = qE; state.qty.expiring = qX; state.qty.fresh = qF;
+
+      refreshKpis();
+      drawAllCharts();
+
+      renderTable("tblExpired", state.rowsExpired);
+      renderTable("tblExpiring", state.rowsExpiring);
+      renderTable("tblFresh", state.rowsFresh);
+    }
+
+    // ======= Event Listeners =======
+    document.getElementById("mdInput").addEventListener("change", async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      renderMarkdown(await file.text());
+    });
+
+    document.getElementById("fullCsvInput").addEventListener("change", (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      parseCsvFile(file, (rows) => {
+        buildSlicesFromFull(rows);
+      });
+    });
+
+    document.getElementById("csvInput").addEventListener("change", (e) => {
+      const files = Array.from(e.target.files || []);
+      if (!files.length) return;
+
+      // reset slices (keep counts until recomputed)
+      state.rowsExpired = []; state.rowsExpiring = []; state.rowsFresh = [];
+
+      let remaining = files.length;
+      files.forEach(f => {
+        parseCsvFile(f, (rows) => {
+          const name = (f.name || "").toLowerCase();
+          if (name.includes("expired")) state.rowsExpired = rows;
+          else if (name.includes("expiring")) state.rowsExpiring = rows;
+          else if (name.includes("fresh")) state.rowsFresh = rows;
+
+          if (--remaining === 0) {
+            updateKpisFromRows();
+            drawAllCharts();
+            renderTable("tblExpired", state.rowsExpired);
+            renderTable("tblExpiring", state.rowsExpiring);
+            renderTable("tblFresh", state.rowsFresh);
+          }
+        });
+      });
+    });
+
+    document.getElementById("tableSearch").addEventListener("input", (e) => {
+      const term = e.target.value || "";
+      filterTable("tblExpired", term);
+      filterTable("tblExpiring", term);
+      filterTable("tblFresh", term);
+    });
+
+    document.getElementById("darkToggle").addEventListener("click", () => {
+      document.documentElement.classList.toggle("dark");
+      drawAllCharts(); // redraw for better contrast if needed
+    });
+
+    // Initial draw
+    refreshKpis();
+    drawAllCharts();
+  </script>
+</body>
+</html>

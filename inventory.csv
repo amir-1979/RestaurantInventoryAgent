@@ -1,0 +1,31 @@
+item,quantity,expiration_date,category
+Milk,8,2025-10-15,Dairy
+Eggs,30,2025-10-20,Protein
+Romaine Lettuce,12,2025-10-13,Produce
+Spinach,10,2025-10-11,Produce
+Chicken Breast,20,2025-10-18,Protein
+Salmon Fillet,12,2025-10-10,Seafood
+Ground Beef,15,2025-10-22,Protein
+Yogurt,24,2025-10-14,Dairy
+Cheddar Cheese,5,2025-11-05,Dairy
+Tomatoes,18,2025-10-16,Produce
+Avocados,14,2025-10-19,Produce
+Onions,25,2025-12-01,Produce
+Potatoes,50,2025-11-20,Produce
+Mushrooms,10,2025-10-12,Produce
+Bread Loaves,16,2025-10-13,Bakery
+Buns,24,2025-10-21,Bakery
+Butter,6,2026-01-15,Dairy
+Cream,8,2025-10-17,Dairy
+Lettuce Iceberg,10,2025-10-09,Produce
+Strawberries,20,2025-10-12,Produce
+Blueberries,12,2025-10-23,Produce
+Olive Oil,4,2027-06-01,Dry Goods
+Pasta,40,2026-03-01,Dry Goods
+Rice,60,2027-12-31,Dry Goods
+Shrimp,18,2025-10-15,Seafood
+Bacon,12,2025-10-25,Protein
+Soda,48,2026-08-01,Beverage
+Ice Cream,10,2025-11-10,Frozen
+Frozen Peas,30,2026-02-10,Frozen
+Tofu,16,2025-10-13,Protein

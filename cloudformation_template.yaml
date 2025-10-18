@@ -1,0 +1,244 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Restaurant Inventory Dashboard - Complete AWS Infrastructure'
+
+Parameters:
+  BucketName:
+    Type: String
+    Default: inventory-dashboard
+    Description: Name for the S3 bucket (must be globally unique)
+  
+  LambdaFunctionName:
+    Type: String
+    Default: inventory-analyzer
+    Description: Name for the Lambda function
+
+Resources:
+  # S3 Bucket for static website hosting
+  InventoryDashboardBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "${BucketName}-${AWS::AccountId}"
+      WebsiteConfiguration:
+        IndexDocument: static_dashboard.html
+        ErrorDocument: error.html
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: false
+        BlockPublicPolicy: false
+        IgnorePublicAcls: false
+        RestrictPublicBuckets: false
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders: ['*']
+            AllowedMethods: [GET, POST, PUT, DELETE, HEAD]
+            AllowedOrigins: ['*']
+            MaxAge: 3000
+
+  # S3 Bucket Policy for public read access
+  InventoryDashboardBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref InventoryDashboardBucket
+      PolicyDocument:
+        Statement:
+          - Sid: PublicReadGetObject
+            Effect: Allow
+            Principal: '*'
+            Action: 's3:GetObject'
+            Resource: !Sub "${InventoryDashboardBucket}/*"
+
+  # IAM Role for Lambda function
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: S3AccessPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:DeleteObject
+                Resource: !Sub "${InventoryDashboardBucket}/*"
+              - Effect: Allow
+                Action:
+                  - s3:ListBucket
+                Resource: !Ref InventoryDashboardBucket
+
+  # Lambda function for inventory analysis
+  InventoryAnalyzerFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Ref LambdaFunctionName
+      Runtime: python3.9
+      Handler: lambda_inventory_agent.lambda_handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Timeout: 300
+      MemorySize: 512
+      Environment:
+        Variables:
+          INVENTORY_BUCKET: !Ref InventoryDashboardBucket
+      Code:
+        ZipFile: |
+          import json
+          def lambda_handler(event, context):
+              return {
+                  'statusCode': 200,
+                  'body': json.dumps('Please upload the actual Lambda code')
+              }
+
+  # API Gateway REST API
+  InventoryAPI:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: inventory-dashboard-api
+      Description: API for inventory dashboard
+      EndpointConfiguration:
+        Types:
+          - REGIONAL
+
+  # API Gateway Resource
+  AnalyzeResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref InventoryAPI
+      ParentId: !GetAtt InventoryAPI.RootResourceId
+      PathPart: analyze
+
+  # API Gateway Method
+  AnalyzeMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref InventoryAPI
+      ResourceId: !Ref AnalyzeResource
+      HttpMethod: POST
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${InventoryAnalyzerFunction.Arn}/invocations"
+      MethodResponses:
+        - StatusCode: 200
+          ResponseHeaders:
+            Access-Control-Allow-Origin: "'*'"
+            Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+            Access-Control-Allow-Methods: "'GET,POST,OPTIONS'"
+
+  # CORS Options Method
+  AnalyzeOptionsMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref InventoryAPI
+      ResourceId: !Ref AnalyzeResource
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+          - StatusCode: 200
+            ResponseHeaders:
+              Access-Control-Allow-Origin: "'*'"
+              Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              Access-Control-Allow-Methods: "'GET,POST,OPTIONS'"
+            ResponseTemplates:
+              application/json: ''
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+      MethodResponses:
+        - StatusCode: 200
+          ResponseHeaders:
+            Access-Control-Allow-Origin: true
+            Access-Control-Allow-Headers: true
+            Access-Control-Allow-Methods: true
+
+  # Lambda permission for API Gateway
+  LambdaApiGatewayPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref InventoryAnalyzerFunction
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub "${InventoryAPI}/*/POST/analyze"
+
+  # API Gateway Deployment
+  APIDeployment:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn:
+      - AnalyzeMethod
+      - AnalyzeOptionsMethod
+    Properties:
+      RestApiId: !Ref InventoryAPI
+      StageName: prod
+
+  # CloudFront Distribution for HTTPS
+  CloudFrontDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Origins:
+          - DomainName: !Sub "${InventoryDashboardBucket}.s3-website-${AWS::Region}.amazonaws.com"
+            Id: S3Origin
+            CustomOriginConfig:
+              HTTPPort: 80
+              HTTPSPort: 443
+              OriginProtocolPolicy: http-only
+        Enabled: true
+        DefaultRootObject: static_dashboard.html
+        DefaultCacheBehavior:
+          TargetOriginId: S3Origin
+          ViewerProtocolPolicy: redirect-to-https
+          AllowedMethods:
+            - GET
+            - HEAD
+            - OPTIONS
+          CachedMethods:
+            - GET
+            - HEAD
+          ForwardedValues:
+            QueryString: false
+            Cookies:
+              Forward: none
+        PriceClass: PriceClass_100
+        ViewerCertificate:
+          CloudFrontDefaultCertificate: true
+
+Outputs:
+  WebsiteURL:
+    Description: URL of the static website
+    Value: !Sub "http://${InventoryDashboardBucket}.s3-website-${AWS::Region}.amazonaws.com"
+    Export:
+      Name: !Sub "${AWS::StackName}-WebsiteURL"
+
+  CloudFrontURL:
+    Description: CloudFront distribution URL (HTTPS)
+    Value: !Sub "https://${CloudFrontDistribution.DomainName}"
+    Export:
+      Name: !Sub "${AWS::StackName}-CloudFrontURL"
+
+  APIGatewayURL:
+    Description: API Gateway endpoint URL
+    Value: !Sub "https://${InventoryAPI}.execute-api.${AWS::Region}.amazonaws.com/prod/analyze"
+    Export:
+      Name: !Sub "${AWS::StackName}-APIGatewayURL"
+
+  S3BucketName:
+    Description: Name of the S3 bucket
+    Value: !Ref InventoryDashboardBucket
+    Export:
+      Name: !Sub "${AWS::StackName}-S3BucketName"
+
+  LambdaFunctionName:
+    Description: Name of the Lambda function
+    Value: !Ref InventoryAnalyzerFunction
+    Export:
+      Name: !Sub "${AWS::StackName}-LambdaFunctionName"

@@ -1,0 +1,11 @@
+item,quantity,expiration_date,category
+Cheddar Cheese,5,2025-11-05,Dairy
+Onions,25,2025-12-01,Produce
+Potatoes,50,2025-11-20,Produce
+Butter,6,2026-01-15,Dairy
+Olive Oil,4,2027-06-01,Dry Goods
+Pasta,40,2026-03-01,Dry Goods
+Rice,60,2027-12-31,Dry Goods
+Soda,48,2026-08-01,Beverage
+Ice Cream,10,2025-11-10,Frozen
+Frozen Peas,30,2026-02-10,Frozen

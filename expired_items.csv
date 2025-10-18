@@ -1,0 +1,14 @@
+item,quantity,expiration_date,category
+Milk,8,2025-10-15,Dairy
+Romaine Lettuce,12,2025-10-13,Produce
+Spinach,10,2025-10-11,Produce
+Salmon Fillet,12,2025-10-10,Seafood
+Yogurt,24,2025-10-14,Dairy
+Tomatoes,18,2025-10-16,Produce
+Mushrooms,10,2025-10-12,Produce
+Bread Loaves,16,2025-10-13,Bakery
+Cream,8,2025-10-17,Dairy
+Lettuce Iceberg,10,2025-10-09,Produce
+Strawberries,20,2025-10-12,Produce
+Shrimp,18,2025-10-15,Seafood
+Tofu,16,2025-10-13,Protein
