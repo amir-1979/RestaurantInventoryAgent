@@ -14,9 +14,7 @@ def hash_password(password):
 def test_credentials():
     """Test the default credentials"""
     DEFAULT_USERS = {
-        "admin": "admin123",
-        "manager": "manager123",
-        "staff": "staff123"
+
     }
     
     print("🔍 Testing Login System")

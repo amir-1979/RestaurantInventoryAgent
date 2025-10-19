@@ -145,9 +145,7 @@ def reset_password():
 def create_default_users():
     """Create default users for demo"""
     default_users = {
-        "admin": "admin123",
-        "manager": "manager123", 
-        "staff": "staff123"
+
     }
     
     users = load_users()

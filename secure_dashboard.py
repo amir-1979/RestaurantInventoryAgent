@@ -22,9 +22,7 @@ st.set_page_config(
 
 # Default credentials (in production, store these securely)
 DEFAULT_USERS = {
-    "admin": "admin123",
-    "manager": "manager123",
-    "staff": "staff123"
+
 }
 
 def hash_password(password):
@@ -105,14 +103,6 @@ def show_login_page():
                 else:
                     st.warning("⚠️ Please enter both username and password")
     
-    # Show default credentials for demo
-    st.markdown("---")
-    with st.expander("🔍 Demo Credentials (for testing)"):
-        st.markdown("**Default login credentials:**")
-        for username, password in DEFAULT_USERS.items():
-            st.markdown(f"• **{username}**: {password}")
-        st.markdown("*In production, these would be securely managed.*")
-
 def safe_date_conversion(date_series):
     """Safely convert dates with multiple fallback methods"""
     try:

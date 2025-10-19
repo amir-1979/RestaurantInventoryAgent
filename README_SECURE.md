@@ -13,11 +13,6 @@ This will start the secure dashboard with login protection.
 ### 2. Default Login Credentials
 For demo purposes, these default accounts are created:
 
-| Username | Password   | Role    |
-|----------|------------|---------|
-| admin    | admin123   | Admin   |
-| manager  | manager123 | Manager |
-| staff    | staff123   | Staff   |
 
 ### 3. Access the Dashboard
 1. Open your browser to `http://localhost:8501`

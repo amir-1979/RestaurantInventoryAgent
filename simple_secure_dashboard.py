@@ -19,9 +19,7 @@ st.set_page_config(
 
 # Simple in-memory user storage (for demo purposes)
 VALID_USERS = {
-    "admin": "admin123",
-    "manager": "manager123", 
-    "staff": "staff123"
+
 }
 
 def verify_login(username, password):
@@ -61,28 +59,10 @@ def show_login_page():
                         st.rerun()
                     else:
                         st.error("❌ Invalid username or password")
-                        st.info("💡 Try: admin/admin123 or manager/manager123 or staff/staff123")
+                        st.info("💡 Try: admin/XXX or manager/XXX or staff/XXX")
                 else:
                     st.warning("⚠️ Please enter both username and password")
     
-    # Show credentials for demo
-    st.markdown("---")
-    with st.expander("🔍 Demo Credentials"):
-        st.markdown("**Available login credentials:**")
-        col1, col2, col3 = st.columns(3)
-        
-        with col1:
-            st.markdown("**Admin Access:**")
-            st.code("Username: admin\nPassword: admin123")
-        
-        with col2:
-            st.markdown("**Manager Access:**")
-            st.code("Username: manager\nPassword: manager123")
-        
-        with col3:
-            st.markdown("**Staff Access:**")
-            st.code("Username: staff\nPassword: staff123")
-
 def load_inventory_data():
     """Load and process inventory data"""
     try:
